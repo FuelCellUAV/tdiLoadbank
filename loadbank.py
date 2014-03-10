@@ -19,57 +19,77 @@
 
 
 # Includes
-import time
-import getpass
 import telnetlib
 
 
 class TdiLoadbank():
     def __init__(self, HOST, PORT=23, password=''):
         self.HOST = HOST
-        self.PORT = PORT
-        self.password = password
-        self.tn = self.connect(HOST, PORT, password)
+        self.PORT = PORT # Default 23 if not specified
+        self.password = password # Default blank if not specified
+        self.tn = self.__connect(HOST, PORT, password)
 
+    # Telnet connect method
     @staticmethod
-    def connect(HOST, PORT, password):
+    def __connect(HOST, PORT, password):
         tn = telnetlib.Telnet(HOST, PORT)
         if password:
             tn.read_until(b"Password ? ")
             tn.write(password.encode('ascii') + b"\r\n")
         return tn
 
+    # Method to handle data 2way telnet datastream
     @staticmethod
-    def get(tn, command):
-        tn.read_until(b"\r",0.1) # Flush read buffer
-        tn.write(command)
-        data = tn.read_until(b"\r",0.1) # Timeout = 0.1sec
+    def __send(tn, command, value=''):
+        tn.read_until(b"\r", 0.1) # Flush read buffer (needed)
+        if value:
+            # Send new setting
+            tn.write((command + ' ' + value + '\r').encode('ascii'))
+        # Request data
+        tn.write((command + '?\r').encode('ascii'))
+        # Receive data
+        data = tn.read_until(b"\r", 0.1) # Timeout = 0.1sec
         data = data.decode('ascii')
         if data.isspace() or not data:
-            # print('Got only whitespace, reading again')
-            data = TdiLoadbank.get(tn, command) # RECURSIVE #
+            # Redo if nothing received (needed)
+            data = TdiLoadbank.__send(tn, command) # RECURSIVE #
         data = data.strip('\r\n')
         return data
 
-    def getVolts(self):
-        voltsString = self.get(self.tn, b"v?\r")
-        return float(voltsString.split(' ')[0])
+    # Random command
+    def random(self, command, state=''):
+        return self.__send(self.tn, command, state)
 
-    def getAmps(self):
-        ampsString = self.get(self.tn, b"i?\r")
-        return float(ampsString.split(' ')[0])
+    # Load
+    def load(self, state=''):
+        return self.__send(self.tn, 'load', state).split(' ')[1]
 
-    def getMode(self):
-        modeString = self.get(self.tn, b"mode?\r")
-        return modeString
+    # Mode
+    def mode(self):
+        return self.__send(self.tn, 'mode')
 
-    def getThis(self, query):
-        self.tn.write(query + b"\n")
-        time.sleep(1)
-        data = self.tn.read_some()
-        print('data = ' + data.decode('ascii'))
-        return data.decode('ascii') # Timeout = 1sec
+    # Voltage
+    def voltage(self):
+        return float(self.__send(self.tn, 'v').split(' ')[0])
+    def constantVoltage(self, value=''):
+        return float(self.__send(self.tn, 'cv', value).split(' ')[0])
+    def voltageLimit(self, value=''):
+        return float(self.__send(self.tn, 'vl', value).split(' ')[0])
+    def voltageMinimum(self, value=''):
+        return float(self.__send(self.tn, 'uv', value).split(' ')[0])
 
-#if __name__ == "__main__":
-#    load = TdiLoadbank('158.125.152.225',port=10001,password='fuelcell'
-    
+    # Current
+    def current(self):
+        return float(self.__send(self.tn, 'i').split(' ')[0])
+    def constantCurrent(self, value=''):
+        return float(self.__send(self.tn, 'ci', value).split(' ')[0])
+    def currentLimit(self, value=''):
+        return float(self.__send(self.tn, 'il', value).split(' ')[0])
+
+    # Power
+    def power(self):
+        return float(self.__send(self.tn, 'p').split(' ')[0])
+    def constantPower(self, value=''):
+        return float(self.__send(self.tn, 'cp', value).split(' ')[0])
+    def powerLimit(self, value=''):
+        return float(self.__send(self.tn, 'pl', value).split(' ')[0])
