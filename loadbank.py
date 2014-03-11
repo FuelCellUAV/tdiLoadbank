@@ -28,6 +28,7 @@ class TdiLoadbank():
         self.PORT = PORT # Default 23 if not specified
         self.password = password # Default blank if not specified
         self.tn = self.__connect(HOST, PORT, password)
+        self.tn.read_very_eager() # Flush read buffer (needed)
 
     # Telnet connect method
     @staticmethod
@@ -41,19 +42,21 @@ class TdiLoadbank():
     # Method to handle data 2way telnet datastream
     @staticmethod
     def __send(tn, command, value=''):
-        tn.read_until(b"\r", 0.1) # Flush read buffer (needed)
-        if value:
-            # Send new setting
-            tn.write((command + ' ' + value + '\r').encode('ascii'))
-        # Request data
-        tn.write((command + '?\r').encode('ascii'))
-        # Receive data
-        data = tn.read_until(b"\r", 0.1) # Timeout = 0.1sec
-        data = data.decode('ascii')
-        if data.isspace() or not data:
-            # Redo if nothing received (needed)
-            data = TdiLoadbank.__send(tn, command) # RECURSIVE #
-        data = data.strip('\r\n')
+        data = ""
+        while not data or data.isspace():
+            # If we are setting a variable
+            if value:
+                tn.write((command + ' ' + value + '\r').encode('ascii'))
+
+            # Request data
+            tn.write((command + '?\r').encode('ascii'))
+
+            # Receive data
+            data = tn.read_until(b"\r", 0.1) # Timeout = 0.1sec
+            data = data.decode('ascii')
+            data = data.strip('\r\n')
+
+        tn.read_very_eager() # Flush read buffer (needed)
         return data
 
     # Random command
