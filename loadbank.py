@@ -43,6 +43,7 @@ class TdiLoadbank():
     @staticmethod
     def __send(tn, command, value=''):
         data = ""
+        tn.read_very_eager() # Flush read buffer (needed)
         while not data or data.isspace():
             # If we are setting a variable
             if value:
@@ -56,7 +57,6 @@ class TdiLoadbank():
             data = data.decode('ascii')
             data = data.strip('\r\n')
 
-        tn.read_very_eager() # Flush read buffer (needed)
         return data
 
     # Random command
