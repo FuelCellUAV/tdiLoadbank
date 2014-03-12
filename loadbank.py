@@ -57,6 +57,7 @@ class TdiLoadbank():
             data = tn.read_until(b"\r", 0.1) # Timeout = 0.1sec
             data = data.decode('ascii')
             data = data.strip('\r\n')
+            tn.read_very_eager() # Flush read buffer (needed)
 
         return data
 
