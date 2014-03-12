@@ -48,6 +48,7 @@ class TdiLoadbank():
             # If we are setting a variable
             if value:
                 tn.write((command + ' ' + value + '\r').encode('ascii'))
+                tn.read_very_eager() # Flush read buffer (needed)
 
             # Request data
             tn.write((command + '?\r').encode('ascii'))
