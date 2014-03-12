@@ -59,6 +59,17 @@ class TdiLoadbank():
 
         return data
 
+    @staticmethod
+    def __get(request):
+        success = False
+        while success is False:
+            try:
+                result = request()
+                success = True
+            except: pass
+        return result
+        
+
     # Random command
     def random(self, command, state=''):
         return self.__send(self.tn, command, state)
@@ -73,7 +84,9 @@ class TdiLoadbank():
 
     # Voltage
     def voltage(self):
-        return float(self.__send(self.tn, 'v').split(' ')[0])
+        return self.__get(lambda: float(self.__send(self.tn, 'v').split(' ')[0]))
+
+#        return float(self.__send(self.tn, 'v').split(' ')[0])
     def constantVoltage(self, value=''):
         return float(self.__send(self.tn, 'cv', value).split(' ')[0])
     def voltageLimit(self, value=''):
