@@ -66,46 +66,45 @@ class TdiLoadbank():
             try:
                 result = request()
                 success = True
+            except (KeyboardInterrupt, SystemExit): raise
             except: pass
         return result
         
 
     # Random command
     def random(self, command, state=''):
-        return self.__send(self.tn, command, state)
+        return self.__get(lambda: self.__send(self.tn, command, state))
 
     # Load
     def load(self, state=''):
-        return self.__send(self.tn, 'load', state).split(' ')[1]
+        return self.__get(lambda: self.__send(self.tn, 'load', state).split(' ')[1])
 
     # Mode
     def mode(self):
-        return self.__send(self.tn, 'mode')
+        return self.__get(lambda: self.__send(self.tn, 'mode'))
 
     # Voltage
     def voltage(self):
         return self.__get(lambda: float(self.__send(self.tn, 'v').split(' ')[0]))
-
-#        return float(self.__send(self.tn, 'v').split(' ')[0])
     def constantVoltage(self, value=''):
-        return float(self.__send(self.tn, 'cv', value).split(' ')[0])
+        return self.__get(lambda: float(self.__send(self.tn, 'cv', value).split(' ')[0]))
     def voltageLimit(self, value=''):
-        return float(self.__send(self.tn, 'vl', value).split(' ')[0])
+        return self.__get(lambda: float(self.__send(self.tn, 'vl', value).split(' ')[0]))
     def voltageMinimum(self, value=''):
-        return float(self.__send(self.tn, 'uv', value).split(' ')[0])
+        return self.__get(lambda: float(self.__send(self.tn, 'uv', value).split(' ')[0]))
 
     # Current
     def current(self):
-        return float(self.__send(self.tn, 'i').split(' ')[0])
+        return self.__get(lambda: float(self.__send(self.tn, 'i').split(' ')[0]))
     def constantCurrent(self, value=''):
-        return float(self.__send(self.tn, 'ci', value).split(' ')[0])
+        return self.__get(lambda: float(self.__send(self.tn, 'ci', value).split(' ')[0]))
     def currentLimit(self, value=''):
-        return float(self.__send(self.tn, 'il', value).split(' ')[0])
+        return self.__get(lambda: float(self.__send(self.tn, 'il', value).split(' ')[0]))
 
     # Power
     def power(self):
-        return float(self.__send(self.tn, 'p').split(' ')[0])
+        return self.__get(lambda: float(self.__send(self.tn, 'p').split(' ')[0]))
     def constantPower(self, value=''):
-        return float(self.__send(self.tn, 'cp', value).split(' ')[0])
+        return self.__get(lambda: float(self.__send(self.tn, 'cp', value).split(' ')[0]))
     def powerLimit(self, value=''):
-        return float(self.__send(self.tn, 'pl', value).split(' ')[0])
+        return self.__get(lambda: float(self.__send(self.tn, 'pl', value).split(' ')[0]))
