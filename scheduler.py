@@ -23,20 +23,38 @@ from loadbank import TdiLoadbank
 
 class PowerScheduler():
     def __init__(self, filename):
-       self.filename = filename
+        self.filename = filename
+        self.lineRegister = self.getLinePositions(filename)
+        self.linePointer = -1
     
     @staticmethod
-    def getData(file):
-        data = [[0,0]]
-        with open(file) as tsv:
-            for line in csv.reader(tsv, delimiter='\t'):
-                data = data + [[int(line[0]), int(line[1])]]
-            tsv.close()
-        return data        
-         
+    def getLinePositions(filename):
+        # Get the start points of each line/row in the file
+        print('\nReading flight profile data...', end='...')
+        file = open(filename)
+        lineRegister = [0]
+        thisLine = 1
+        data = ' '
+        while data:
+            data = file.readline()
+            thisLine = file.tell()
+            if thisLine>0: lineRegister.append(thisLine)
+        print('done!')
+        return lineRegister
+
+    def getLine(self, lineRequired=1):
+        # Get last/current/next line (default = next line)
+        file=open(self.filename)
+        self.linePointer += lineRequired
+        if self.linePointer < 0: self.linePointer = 0
+        file.seek(self.lineRegister[self.linePointer])
+        data = file.readline()
+        file.close()
+        return data
 
     def main(self):
         # open file
         # read time & compare with now
         # export power to loadbank
-        print(self.getData(self.filename))
+        for i in (self.getLine(self.filename, self.lineRegister)):
+            print(i)
