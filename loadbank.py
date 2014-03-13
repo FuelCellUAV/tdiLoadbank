@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+4#!/usr/bin/python3
 
 # TDi Loadbank Controller
 
@@ -19,7 +19,7 @@
 
 
 # Includes
-import telnetlib
+import telnetlib, time
 
 
 class TdiLoadbank():
@@ -48,11 +48,13 @@ class TdiLoadbank():
             # If we are setting a variable
             if value:
                 tn.write((command + ' ' + value + '\r').encode('ascii'))
+#                print((command + ' ' + value + '\r').encode('ascii'))
+                time.sleep(0.1)
                 tn.read_very_eager() # Flush read buffer (needed)
-
             # Request data
             tn.write((command + '?\r').encode('ascii'))
-
+#            print((command + '?\r').encode('ascii'))
+            time.sleep(0.1)
             # Receive data
             data = tn.read_until(b"\r", 0.1) # Timeout = 0.1sec
             data = data.decode('ascii')

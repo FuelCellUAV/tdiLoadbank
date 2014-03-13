@@ -21,11 +21,13 @@
 import time, csv
 from loadbank import TdiLoadbank
 
-class PowerScheduler():
-    def __init__(self, filename):
+class PowerScheduler(TdiLoadbank):
+    def __init__(self, filename, HOST, PORT=23, password=''):
+        super().__init__(HOST, PORT, password)
         self.filename = filename
         self.lineRegister = self.getLinePositions(filename)
         self.linePointer = -1
+        self.startTime = time.time()
     
     @staticmethod
     def getLinePositions(filename):
@@ -50,11 +52,48 @@ class PowerScheduler():
         file.seek(self.lineRegister[self.linePointer])
         data = file.readline()
         file.close()
-        return data
+        return self.decodeLine(data)
+
+    # Decode line from list of strings to list of floats
+    @staticmethod
+    def decodeLine(line): return list(map(float, line.split(',')))
+
+    # Find this time entry
+    def findNow(self):
+        psuedoTime = time.time() - self.startTime
+
+        try:
+            while self.getLine(1)[0] < psuedoTime: pass # Check next line
+        except (IndexError, ValueError):
+#            print('End of Test')
+            return -1 # End of test
+        return self.getLine(-1)[1] # Set pointer to the line before
 
     def main(self):
-        # open file
-        # read time & compare with now
-        # export power to loadbank
-        for i in (self.getLine(self.filename, self.lineRegister)):
-            print(i)
+        setpoint = 0
+        setpointLast = 0
+        input('Press any key to start')
+        self.startTime=time.time()
+        self.load('on')
+        file = open((self.filename.split('.')[0] + 'Results' + time.strftime('%y%m%d%H%M%S') + '.txt'),'w')
+        while setpoint >= 0:
+            setpoint = self.findNow()
+            if setpoint != setpointLast and setpoint >=0:
+                setpointLast = setpoint
+                self.constantCurrent(str(setpoint))
+                ci = self.constantCurrent()
+                voltage = self.voltage()
+                current = self.current()
+                power = self.power()
+                print(ci, end='\t')
+                print(voltage, end='\t')
+                print(current, end='\t')
+                print(power, end='\n')
+                file.write(str(time.time()) + '\t')
+                file.write(str(ci) + '\t')
+                file.write(str(voltage) + '\t')
+                file.write(str(current) + '\t')
+                file.write(str(power) + '\n')
+        print('End of test.')
+        self.load('off')
+        file.close()
