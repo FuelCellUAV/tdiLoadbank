@@ -77,7 +77,6 @@ class PowerScheduler(TdiLoadbank):
         with open((self.filename.split('.')[0] + 'Results' + time.strftime('%y%m%d%H%M%S') + '.txt'),'w') as file:
             while setpoint >= 0:
                 setpoint = self.findNow()
-                print('Setpoint=', setpoint,end='\t')
                 if setpoint != setpointLast and setpoint >=0:
                     setpointLast = setpoint
                     self.constantCurrent(str(setpoint))
