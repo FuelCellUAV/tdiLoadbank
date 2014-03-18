@@ -18,7 +18,7 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # Import libraries
-import time, csv
+import time
 from loadbank import TdiLoadbank
 
 class PowerScheduler(TdiLoadbank):
@@ -33,39 +33,38 @@ class PowerScheduler(TdiLoadbank):
     def getLinePositions(filename):
         # Get the start points of each line/row in the file
         print('\nReading flight profile data...', end='...')
-        file = open(filename)
-        lineRegister = [0]
-        thisLine = 1
-        data = ' '
-        while data:
-            data = file.readline()
-            thisLine = file.tell()
-            if thisLine>0: lineRegister.append(thisLine)
-        print('done!')
-        return lineRegister
+        with open(filename) as file:
+            lineRegister = [0]
+            thisLine = 1
+            data = ' '
+            while data:
+                data = file.readline()
+                thisLine = file.tell()
+                if thisLine>0 and thisLine!=lineRegister[-1]: lineRegister.append(thisLine)
+            print('done!')
+            return lineRegister
 
     def getLine(self, lineRequired=1):
         # Get last/current/next line (default = next line)
-        file=open(self.filename)
-        self.linePointer += lineRequired
-        if self.linePointer < 0: self.linePointer = 0
-        file.seek(self.lineRegister[self.linePointer])
-        data = file.readline()
-        file.close()
+        with open(self.filename) as file:
+            self.linePointer += lineRequired
+            if self.linePointer < 0: self.linePointer = 0
+            file.seek(self.lineRegister[self.linePointer])
+            data = file.readline()
         return self.decodeLine(data)
 
     # Decode line from list of strings to list of floats
     @staticmethod
-    def decodeLine(line): return list(map(float, line.split(',')))
+    def decodeLine(line): return list(map(float, line.replace(',','\t').split('\t')))
 
     # Find this time entry
     def findNow(self):
         psuedoTime = time.time() - self.startTime
-
         try:
             while self.getLine(1)[0] < psuedoTime: pass # Check next line
         except (IndexError, ValueError):
 #            print('End of Test')
+            self.linePointer = -1
             return -1 # End of test
         return self.getLine(-1)[1] # Set pointer to the line before
 
@@ -73,14 +72,15 @@ class PowerScheduler(TdiLoadbank):
         setpoint = 0
         setpointLast = 0
         input('Press any key to start')
-        self.startTime=time.time()
+        self.startTime = time.time()
         self.load('on')
-        file = open((self.filename.split('.')[0] + 'Results' + time.strftime('%y%m%d%H%M%S') + '.txt'),'w')
-        while setpoint >= 0:
-            setpoint = self.findNow()
-            if setpoint != setpointLast and setpoint >=0:
-                setpointLast = setpoint
-                self.constantCurrent(str(setpoint))
+        with open((self.filename.split('.')[0] + 'Results' + time.strftime('%y%m%d%H%M%S') + '.txt'),'w') as file:
+            while setpoint >= 0:
+                setpoint = self.findNow()
+                print('Setpoint=', setpoint,end='\t')
+                if setpoint != setpointLast and setpoint >=0:
+                    setpointLast = setpoint
+                    self.constantCurrent(str(setpoint))
                 ci = self.constantCurrent()
                 voltage = self.voltage()
                 current = self.current()
@@ -96,4 +96,3 @@ class PowerScheduler(TdiLoadbank):
                 file.write(str(power) + '\n')
         print('End of test.')
         self.load('off')
-        file.close()
