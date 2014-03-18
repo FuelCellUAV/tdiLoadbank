@@ -19,7 +19,7 @@
 
 # Import libraries
 import time
-from loadbank import TdiLoadbank
+from .loadbank import TdiLoadbank
 
 class PowerScheduler(TdiLoadbank):
     def __init__(self, filename, HOST, PORT=23, password=''):
@@ -40,7 +40,7 @@ class PowerScheduler(TdiLoadbank):
             while data:
                 data = file.readline()
                 thisLine = file.tell()
-                if thisLine>0 and thisLine!=lineRegister[-1]: lineRegister.append(thisLine)
+                if thisLine>=0 and thisLine!=lineRegister[-1]: lineRegister.append(thisLine)
             print('done!')
             return lineRegister
 
@@ -70,7 +70,7 @@ class PowerScheduler(TdiLoadbank):
 
     def main(self):
         setpoint = 0
-        setpointLast = 0
+        setpointLast = -1
         input('Press any key to start')
         self.startTime = time.time()
         self.load('on')
