@@ -74,7 +74,7 @@ class PowerScheduler(TdiLoadbank):
         input('Press any key to start')
         self.startTime = time.time()
         self.load('on')
-        with open((self.filename.split('.')[0] + 'Results' + time.strftime('%y%m%d%H%M%S') + '.txt'),'w') as file:
+        with open((self.filename.split('.')[0] + 'Results-' + time.strftime('%y%m%d-%H%M%S') + '.txt'),'w') as file:
             while setpoint >= 0:
                 setpoint = self.findNow()
                 if setpoint != setpointLast and setpoint >=0:
