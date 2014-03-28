@@ -54,7 +54,7 @@ class TdiLoadbank():
             # Request data
             tn.write((command + '?\r').encode('ascii'))
 #            print((command + '?\r').encode('ascii'))
-            time.sleep(0.1)
+            time.sleep(0.12)
             # Receive data
             data = tn.read_until(b"\r", 0.1) # Timeout = 0.1sec
             data = data.decode('ascii')
