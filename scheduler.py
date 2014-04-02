@@ -23,12 +23,16 @@ from .loadbank import TdiLoadbank
 
 
 class PowerScheduler(TdiLoadbank):
-    def __init__(self, filename, HOST, PORT=23, password=''):
+    def __init__(self, filename, out, HOST, PORT=23, password=''):
         super().__init__(HOST, PORT, password)
         self.__filename = filename
         self.__line_register = self._get_line_positions(filename)
         self.__line_pointer = -1
         self.__start_time = time.time()
+        self.__out = out
+        self.__running = 0
+        self.__setpoint = 0
+        self.__setpoint_last = -1
 
     @staticmethod
     def _get_line_positions(filename):
@@ -36,13 +40,13 @@ class PowerScheduler(TdiLoadbank):
         print('\nReading flight profile data...', end='...')
         with open(filename) as file:
             line_register = [0]
-            data = ''
+            data = ' '
             while data:
                 data = file.readline()
                 this_line = file.tell()
                 if this_line >= 0 and this_line != line_register[-1]:
                     line_register.append(this_line)
-            print('...done!')
+            print('...done!\n')
             return line_register
 
     def _get_line(self, line_required=1):
@@ -72,30 +76,58 @@ class PowerScheduler(TdiLoadbank):
             return -1  # End of test
         return self._get_line(-1)[1]  # Set pointer to the line before
 
-    def main(self):
-        setpoint = 0
-        setpoint_last = -1
-        input('Press any key to start')
+    @property
+    def running(self):
+        return self.__running
+    @running.setter
+    def running(self, state):
+        if state and not self.__running:
+            self._start()
+        elif not state and self.__running:
+            self._stop()
+
+    def _start(self):
+        # Turn on
+        print("Firing up the engines...")
         self.__start_time = time.time()
-        self.load('on')
-        with open((self.__filename.split('.')[0] + 'Results-' + time.strftime('%y%m%d-%H%M%S') + '.txt'), 'w') as file:
-            while setpoint >= 0:
+        self.load = True
+        self.__log = open(('/media/usb0/'
+                          + time.strftime('%y%m%d-%H%M%S')
+                          + '-profile-' + self.__out + '.tsv'),'w')
+        self.__running = 1
+        print("Chocks away!")
+
+    def _stop(self):
+        # Turn off
+        print("Landing...")
+        self.load = False
+        self.__log.close()
+        self.__running = 0
+        print("Back in hangar!\n")
+
+    def _run(self):
+        if self.__running:
+            if self.__setpoint >= 0:
                 setpoint = self._find_now()
-                if setpoint != setpoint_last and setpoint >= 0:
-                    setpoint_last = setpoint
-                    self.current_constant = str(setpoint)
-                ci = self.current_constant
-                voltage = self.voltage
-                current = self.current
-                power = self.power
-                print(ci, end='\t')
-                print(voltage, end='\t')
-                print(current, end='\t')
-                print(power, end='\n')
-                file.write(str(time.time()) + '\t')
-                file.write(str(ci) + '\t')
-                file.write(str(voltage) + '\t')
-                file.write(str(current) + '\t')
-                file.write(str(power) + '\n')
-        print('End of test.')
-        self.load('off')
+                if setpoint >= 0:
+                    if setpoint != self.__setpoint:
+                        self.current_constant = str(setpoint)
+                        self.__setpoint = setpoint
+                    return True
+                else:
+                    return False
+            else:
+                return False
+        else:
+            return False
+
+    def run(self):
+        # Do more running
+        self.running = self._run()
+
+        if self.__running:
+            self.__log.write(str(time.time()) + '\t')
+            self.__log.write(str(self.current_constant) + '\t')
+            self.__log.write(str(self.voltage) + '\t')
+            self.__log.write(str(self.current) + '\t')
+            self.__log.write(str(self.power) + '\n')
