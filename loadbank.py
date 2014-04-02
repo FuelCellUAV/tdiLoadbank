@@ -110,11 +110,11 @@ class TdiLoadbank():
     def mode(self):
         my_mode = self._get(self.__tn, self.__MODE_COMMAND)
         if "VOLTAGE" in my_mode:
-            return "cv\t"+str(self.voltage_constant)
+            return "cv\t" + str(self.voltage_constant)
         elif "CURRENT" in my_mode:
-            return "cc\t"+str(self.current_constant)
+            return "cc\t" + str(self.current_constant)
         elif "POWER" in my_mode:
-            return "cp\t"+str(self.power_constant)
+            return "cp\t" + str(self.power_constant)
         else:
             return "uk\t0.0"
 

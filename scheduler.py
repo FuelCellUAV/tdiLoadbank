@@ -79,6 +79,7 @@ class PowerScheduler(TdiLoadbank):
     @property
     def running(self):
         return self.__running
+
     @running.setter
     def running(self, state):
         if state and not self.__running:
@@ -92,8 +93,8 @@ class PowerScheduler(TdiLoadbank):
         self.__start_time = time.time()
         self.load = True
         self.__log = open(('/media/usb0/'
-                          + time.strftime('%y%m%d-%H%M%S')
-                          + '-profile-' + self.__out + '.tsv'),'w')
+                           + time.strftime('%y%m%d-%H%M%S')
+                           + '-profile-' + self.__out + '.tsv'), 'w')
         self.__running = 1
         print("Chocks away!")
 
