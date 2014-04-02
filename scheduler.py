@@ -21,102 +21,81 @@
 import time
 from .loadbank import TdiLoadbank
 
+
 class PowerScheduler(TdiLoadbank):
-    def __init__(self, filename, out, HOST, PORT=23, password=''):
+    def __init__(self, filename, HOST, PORT=23, password=''):
         super().__init__(HOST, PORT, password)
-        self.filename = filename
-        self.out = out
-        self.lineRegister = self.getLinePositions(filename)
-        self.linePointer = -1
-        self.startTime = time.time()
-        self._setpoint = 0
-        self._setpointLast = -1
-        self._running = 0
-    
+        self.__filename = filename
+        self.__line_register = self._get_line_positions(filename)
+        self.__line_pointer = -1
+        self.__start_time = time.time()
+
     @staticmethod
-    def getLinePositions(filename):
+    def _get_line_positions(filename):
         # Get the start points of each line/row in the file
         print('\nReading flight profile data...', end='...')
         with open(filename) as file:
-            lineRegister = [0]
-            thisLine = 1
-            data = ' '
+            line_register = [0]
+            data = ''
             while data:
                 data = file.readline()
-                thisLine = file.tell()
-                if thisLine>=0 and thisLine!=lineRegister[-1]: lineRegister.append(thisLine)
-            print('done!')
-            return lineRegister
+                this_line = file.tell()
+                if this_line >= 0 and this_line != line_register[-1]:
+                    line_register.append(this_line)
+            print('...done!')
+            return line_register
 
-    def getLine(self, lineRequired=1):
+    def _get_line(self, line_required=1):
         # Get last/current/next line (default = next line)
-        with open(self.filename) as file:
-            self.linePointer += lineRequired
-            if self.linePointer < 0: self.linePointer = 0
-            file.seek(self.lineRegister[self.linePointer])
-            data = file.readline()
-        return self.decodeLine(data)
+        with open(self.__filename) as file:
+            self.__line_pointer += line_required
+            if self.__line_pointer < 0:
+                self.__line_pointer = 0
+            file.seek(self.__line_register[self.__line_pointer])
+            line = file.readline()
+        return self._decode_line(line)
 
     # Decode line from list of strings to list of floats
     @staticmethod
-    def decodeLine(line): return list(map(float, line.replace(',','\t').split('\t')))
+    def _decode_line(line):
+        return list(map(float, line.replace(',', '\t').split('\t')))
 
     # Find this time entry
-    def findNow(self):
-        psuedoTime = time.time() - self.startTime
+    def _find_now(self):
+        psuedo_time = time.time() - self.__start_time
         try:
-            while self.getLine(1)[0] < psuedoTime: pass # Check next line
+            while self._get_line(1)[0] < psuedo_time:
+                pass  # Check next line
         except (IndexError, ValueError):
-#            print('End of Test')
-            self.linePointer = -1
-            return -1 # End of test
-        return self.getLine(-1)[1] # Set pointer to the line before
+            #            print('End of Test')
+            self.__line_pointer = -1
+            return -1  # End of test
+        return self._get_line(-1)[1]  # Set pointer to the line before
 
-    def _start(self):
-        self.startTime = time.time()
-        self._running = 1
+    def main(self):
+        setpoint = 0
+        setpoint_last = -1
+        input('Press any key to start')
+        self.__start_time = time.time()
         self.load('on')
-        self._log = open(('/media/usb0/' + time.strftime('%y%m%d-%H%M%S') + '-profile-' + self.out + '.tsv'),'w')
-    def _stop(self):
-        print("Flight finished!\n")
-        self._running = 0
+        with open((self.__filename.split('.')[0] + 'Results-' + time.strftime('%y%m%d-%H%M%S') + '.txt'), 'w') as file:
+            while setpoint >= 0:
+                setpoint = self._find_now()
+                if setpoint != setpoint_last and setpoint >= 0:
+                    setpoint_last = setpoint
+                    self.current_constant = str(setpoint)
+                ci = self.current_constant
+                voltage = self.voltage
+                current = self.current
+                power = self.power
+                print(ci, end='\t')
+                print(voltage, end='\t')
+                print(current, end='\t')
+                print(power, end='\n')
+                file.write(str(time.time()) + '\t')
+                file.write(str(ci) + '\t')
+                file.write(str(voltage) + '\t')
+                file.write(str(current) + '\t')
+                file.write(str(power) + '\n')
+        print('End of test.')
         self.load('off')
-        self._log.close()
-
-    def _run(self):
-        if self._setpoint >= 0:
-            setpoint = self.findNow()
-            if setpoint >= 0:
-                if setpoint != self._setpoint:
-                    self.constantCurrent(str(setpoint))
-                    self._setpoint = setpoint
-                return 1
-            else: return 0
-        else:
-            return 0
-
-    def main(self, running):
-#        input('Press any key to start')
-        if running:
-            if not self._running:
-                print("Starting")
-                self._start()
-                print("Flying!")
-            # Do running
-            running = self._run()
-
-            ci = self.constantCurrent()
-            voltage = self.voltage()
-            current = self.current()
-            power = self.power()
-
-            self._log.write(str(time.time()) + '\t')
-            self._log.write(str(ci) + '\t')
-            self._log.write(str(voltage) + '\t')
-            self._log.write(str(current) + '\t')
-            self._log.write(str(power) + '\n')
-
-        if not running and self._running:
-            print("Stopping")
-            self._stop()
-        return self._running  
