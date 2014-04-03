@@ -91,6 +91,7 @@ class PowerScheduler(TdiLoadbank):
         # Turn on
         print("Firing up the engines...")
         self.__start_time = time.time()
+        self.current_constant = '0'
         self.load = True
         self.__log = open(('/media/usb0/'
                            + time.strftime('%y%m%d-%H%M%S')
@@ -101,6 +102,7 @@ class PowerScheduler(TdiLoadbank):
     def _stop(self):
         # Turn off
         print("Landing...")
+        self.current_constant = '0'
         self.load = False
         self.__log.close()
         self.__running = 0
