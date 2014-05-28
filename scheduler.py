@@ -27,6 +27,7 @@ class PowerScheduler(TdiLoadbank):
         super().__init__(HOST, PORT, password)
         self.__filename = filename
         self.__line_register = self._get_line_positions(filename)
+#        print(self.__line_register)
         self.__line_pointer = -1
         self.__start_time = time.time()
         self.__out = out
@@ -62,7 +63,20 @@ class PowerScheduler(TdiLoadbank):
     # Decode line from list of strings to list of floats
     @staticmethod
     def _decode_line(line):
-        return list(map(float, line.replace(',', '\t').split('\t')))
+#        print(line)
+        line = line.lstrip()
+#        print(line)
+        line = "\t".join(line.split())
+        #line = line.replace(' ','\t')
+#        print(line)
+        line = line.split('\t')
+#        print(line)
+        line = map(float,line)
+#        print(line)
+        line = list(line)
+#        print(line)
+        return line
+#        return list(map(float, line.replace(',', '\t').split('\t')))
 
     # Find this time entry
     def _find_now(self):
@@ -114,7 +128,8 @@ class PowerScheduler(TdiLoadbank):
                 setpoint = self._find_now()
                 if setpoint >= 0:
                     if setpoint != self.__setpoint:
-                        self.current_constant = str(setpoint)
+                        self.power_constant = str(setpoint)
+#                        self.current_constant = str(setpoint)
                         self.__setpoint = setpoint
                     return True
                 else:
