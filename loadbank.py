@@ -37,11 +37,26 @@ class TdiLoadbank():
     __CONSTANT_CURRENT_COMMAND = "ci"
     __CONSTANT_POWER_COMMAND = "cp"
 
+    __mode    = ""
+    __voltage = 0
+    __current = 0
+    __power   = 0    
+    __set_v   = "0"
+    __set_i   = "0"
+    __set_p   = "0"
+
     def __init__(self, HOST, PORT=23, password=''):
         self.__HOST = HOST
         self.__PORT = PORT  # Default 23 if not specified
         self.__password = password  # Default blank if not specified
         self.__tn = self._connect(HOST, PORT, password)
+
+        self.__set_v = self._get(self.__tn, self.__CONSTANT_VOLTAGE_COMMAND).split()[0]
+        self.__set_i = self._get(self.__tn, self.__CONSTANT_CURRENT_COMMAND).split()[0]
+        self.__set_p = self._get(self.__tn, self.__CONSTANT_POWER_COMMAND).split()[0]
+
+        self.mode = self._get(self.__tn, self.__MODE_COMMAND)
+
 
     # Telnet connect method
     @classmethod
@@ -79,6 +94,7 @@ class TdiLoadbank():
             tn.write(inbuf.encode('ascii'))
             if '?' in inbuf:
                 time.sleep(0.12)  # Wait for reply, TODO not block
+#                time.sleep(0.06)  # Wait for reply, TODO not block
                 outbuf = tn.read_until(b'\r', 0.1)  # Timeout = 0.1sec TODO
                 outbuf = outbuf.decode('ascii').strip('\r\n')
                 cls._flush(tn)  # Flush read buffer (needed)
@@ -108,32 +124,39 @@ class TdiLoadbank():
     # MODE
     @property
     def mode(self):
-        my_mode = self._get(self.__tn, self.__MODE_COMMAND)
-        if "VOLTAGE" in my_mode:
-            return "cv\t" + str(self.voltage_constant)
-        elif "CURRENT" in my_mode:
-            return "cc\t" + str(self.current_constant)
-        elif "POWER" in my_mode:
-            return "cp\t" + str(self.power_constant)
+        if "VOLTAGE" in self.__mode:
+            return self.__mode + " " + str(self.voltage_constant)
+        elif "CURRENT" in self.__mode:
+            return self.__mode + " " + str(self.current_constant)
+        elif "POWER" in self.__mode:
+            return self.__mode + " " + str(self.power_constant)
         else:
-            return "uk\t0.0"
+            self.__setpoint = "error getting mode"
 
     @mode.setter
     def mode(self, op_mode):
         op_mode = op_mode.lower()  # Change any capitals to lower case
         if "vo" in op_mode or "cv" in op_mode:
             self._set(self.__tn, self.__MODE_COMMAND, self.__CONSTANT_VOLTAGE_COMMAND)
+            self.__mode =  "VOLTAGE"            
         elif "cu" in op_mode or "ci" in op_mode:
             self._set(self.__tn, self.__MODE_COMMAND, self.__CONSTANT_CURRENT_COMMAND)
+            self.__mode =  "CURRENT"
         elif "po" in op_mode or "cp" in op_mode:
             self._set(self.__tn, self.__MODE_COMMAND, self.__CONSTANT_POWER_COMMAND)
+            self.__mode =  "POWER"
+
+
+    def update(self):
+        self.__voltage = float(self._get(self.__tn, self.__VOLTAGE_COMMAND).split()[0])
+        self.__current = float(self._get(self.__tn, self.__CURRENT_COMMAND).split()[0])
+        self.__power   = float(self._get(self.__tn, self.__POWER_COMMAND).split()[0])
 
 
     # VOLTAGE CONTROL
     @property
     def voltage(self):
-        data = self._get(self.__tn, self.__VOLTAGE_COMMAND)
-        return float(data.split()[0])
+        return self.__voltage
 
     @voltage.setter
     def voltage(self, volts):
@@ -141,12 +164,12 @@ class TdiLoadbank():
 
     @property
     def voltage_constant(self):
-        data = self._get(self.__tn, self.__CONSTANT_VOLTAGE_COMMAND)
-        return float(data.split()[0])
+        return self.__set_v
 
     @voltage_constant.setter
     def voltage_constant(self, volts):
         self._set(self.__tn, self.__CONSTANT_VOLTAGE_COMMAND, volts)
+        self.__set_v = volts
 
     @property
     def voltage_limit(self):
@@ -170,8 +193,7 @@ class TdiLoadbank():
     # CURRENT CONTROL
     @property
     def current(self):
-        data = self._get(self.__tn, self.__CURRENT_COMMAND)
-        return float(data.split()[0])
+        return self.__current
 
     @current.setter
     def current(self, amps):
@@ -179,13 +201,13 @@ class TdiLoadbank():
 
     @property
     def current_constant(self):
-        data = self._get(self.__tn, self.__CONSTANT_CURRENT_COMMAND)
-        return float(data.split()[0])
+        return self.__set_i
 
     @current_constant.setter
     def current_constant(self, amps):
         self._set(self.__tn, self.__CONSTANT_CURRENT_COMMAND, amps)
-
+        self.__set_i = amps
+ 
     @property
     def current_limit(self):
         data = self._get(self.__tn, self.__CURRENT_LIMIT_COMMAND)
@@ -199,8 +221,7 @@ class TdiLoadbank():
     # POWER CONTROL
     @property
     def power(self):
-        data = self._get(self.__tn, self.__POWER_COMMAND)
-        return float(data.split()[0])
+        return self.__power
 
     @power.setter
     def power(self, watts):
@@ -208,12 +229,12 @@ class TdiLoadbank():
 
     @property
     def power_constant(self):
-        data = self._get(self.__tn, self.__CONSTANT_POWER_COMMAND)
-        return float(data.split()[0])
+        return self.__set_p
 
     @power_constant.setter
     def power_constant(self, watts):
         self._set(self.__tn, self.__CONSTANT_POWER_COMMAND, watts)
+        self.__set_p = watts
 
     @property
     def power_limit(self):

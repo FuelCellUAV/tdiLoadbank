@@ -106,6 +106,7 @@ class PowerScheduler(TdiLoadbank):
         print("Firing up the engines...")
         self.__start_time = time.time()
         self.current_constant = '0'
+        self.mode = "POWER"
         self.load = True
         self.__log = open(('/media/usb0/'
                            + time.strftime('%y%m%d-%H%M%S')
