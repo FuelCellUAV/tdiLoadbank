@@ -93,9 +93,16 @@ class TdiLoadbank():
         while not outbuf or outbuf.isspace():
             tn.write(inbuf.encode('ascii'))
             if '?' in inbuf:
-                time.sleep(0.12)  # Wait for reply, TODO not block
-#                time.sleep(0.06)  # Wait for reply, TODO not block
-                outbuf = tn.read_until(b'\r', 0.1)  # Timeout = 0.1sec TODO
+                if cls.__VOLTAGE_COMMAND in inbuf:
+                    expected = b'volts'
+                elif cls.__CURRENT_COMMAND in inbuf:
+                    expected = b'amps'
+                elif cls.__POWER_COMMAND in inbuf:
+                    expected = b'watts'
+                else:
+                    expected = b'\r'
+
+                outbuf = tn.read_until(expected, 0.2)  # Timeout = 0.1sec TODO
                 outbuf = outbuf.decode('ascii').strip('\r\n')
                 cls._flush(tn)  # Flush read buffer (needed)
             else:

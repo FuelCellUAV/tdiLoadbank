@@ -26,57 +26,34 @@ class PowerScheduler(TdiLoadbank):
     def __init__(self, filename, out, HOST, PORT=23, password=''):
         super().__init__(HOST, PORT, password)
         self.__filename = filename
-        self.__line_register = self._get_line_positions(filename)
-#        print(self.__line_register)
-        self.__line_pointer = -1
+        self.__fid = self._open(filename)
+        self.__last_line = ''
+        self.__this_line = ''
         self.__start_time = time.time()
         self.__out = out
         self.__running = 0
         self.__setpoint = 0
         self.__setpoint_last = -1
 
-    @staticmethod
-    def _get_line_positions(filename):
-        # Get the start points of each line/row in the file
-        print('\nReading flight profile data...', end='...')
-        with open(filename) as file:
-            line_register = [0]
-            data = ' '
-            while data:
-                data = file.readline()
-                this_line = file.tell()
-                if this_line >= 0 and this_line != line_register[-1]:
-                    line_register.append(this_line)
-            print('...done!\n')
-            return line_register
+        self.__LINE_LENGTH = 55
 
-    def _get_line(self, line_required=1):
-        # Get last/current/next line (default = next line)
-        with open(self.__filename) as file:
-            self.__line_pointer += line_required
-            if self.__line_pointer < 0:
-                self.__line_pointer = 0
-            file.seek(self.__line_register[self.__line_pointer])
-            line = file.readline()
-        return self._decode_line(line)
+    @classmethod
+    def _open(cls, filename):
+        return open(filename)
+        
+    @classmethod
+    def _close(cls, fid):
+        fid.close()
 
-    # Decode line from list of strings to list of floats
-    @staticmethod
-    def _decode_line(line):
-#        print(line)
-        line = line.lstrip()
-#        print(line)
-        line = "\t".join(line.split())
-        #line = line.replace(' ','\t')
-#        print(line)
-        line = line.split('\t')
-#        print(line)
-        line = map(float,line)
-#        print(line)
-        line = list(line)
-#        print(line)
-        return line
-#        return list(map(float, line.replace(',', '\t').split('\t')))
+    def shutdown(self):
+        self._close(self.__fid)
+
+    def _get_line(self, pointer=1):
+        if pointer is -1:
+            return list( map(float,self.__last_line.split()) )
+        self.__last_line = self.__this_line
+        self.__this_line = self.__fid.readline()
+        return list( map(float,self.__this_line.split()) )
 
     # Find this time entry
     def _find_now(self):
