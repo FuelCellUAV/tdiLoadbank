@@ -50,6 +50,7 @@ class PowerScheduler(TdiLoadbank):
 
     def _get_line(self, pointer=1):
         if pointer is -1:
+            self.__fid.seek( self.__fid.tell() - len(self.__last_line) )
             return list( map(float,self.__last_line.split()) )
         self.__last_line = self.__this_line
         self.__this_line = self.__fid.readline()
@@ -59,11 +60,9 @@ class PowerScheduler(TdiLoadbank):
     def _find_now(self):
         psuedo_time = time.time() - self.__start_time
         try:
-            while self._get_line(1)[0] < psuedo_time:
+            while self._get_line()[0] < psuedo_time:
                 pass  # Check next line
         except (IndexError, ValueError):
-            #            print('End of Test')
-            self.__line_pointer = -1
             return -1  # End of test
         return self._get_line(-1)[1]  # Set pointer to the line before
 
