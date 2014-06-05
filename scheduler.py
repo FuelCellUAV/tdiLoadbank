@@ -24,7 +24,7 @@ from .loadbank import TdiLoadbank
 
 class PowerScheduler(TdiLoadbank):
     def __init__(self, filename, out, HOST, PORT=23, password=''):
-        super().__init__(HOST, PORT, password)
+        super(PowerScheduler, self).__init__(HOST, PORT, password)
         self.__filename = filename
         self.__fid = self._open(filename)
         self.__last_line = ''
@@ -37,6 +37,13 @@ class PowerScheduler(TdiLoadbank):
 
         self.__LINE_LENGTH = 55
 
+        self.zero()
+
+    def zero(self):
+        self.voltage_constant = '0.0'
+        self.current_constant = '0.0'
+        self.power_constant = '0.0'
+
     @classmethod
     def _open(cls, filename):
         return open(filename)
@@ -46,7 +53,10 @@ class PowerScheduler(TdiLoadbank):
         fid.close()
 
     def shutdown(self):
+        self.zero()
         self._close(self.__fid)
+        self._tn.close()
+        return 1
 
     def _get_line(self, pointer=1):
         if pointer is -1:
@@ -81,7 +91,7 @@ class PowerScheduler(TdiLoadbank):
         # Turn on
         print("Firing up the engines...")
         self.__start_time = time.time()
-        self.current_constant = '0'
+        self.zero()
         self.mode = "POWER"
         self.load = True
         self.__log = open(('/media/usb0/'
@@ -93,7 +103,7 @@ class PowerScheduler(TdiLoadbank):
     def _stop(self):
         # Turn off
         print("Landing...")
-        self.current_constant = '0'
+        self.zero()
         self.load = False
         self.__log.close()
         self.__running = 0
