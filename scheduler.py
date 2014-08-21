@@ -23,7 +23,7 @@ from .loadbank import TdiLoadbank
 
 
 class PowerScheduler(TdiLoadbank):
-    def __init__(self, filename, out, HOST, PORT=23, password=''):
+    def __init__(self, mode, filename, out, HOST, PORT=23, password=''):
         super(PowerScheduler, self).__init__(HOST, PORT, password)
         self.__filename = filename
         self.__fid = self._open(filename)
@@ -38,6 +38,8 @@ class PowerScheduler(TdiLoadbank):
         self.__LINE_LENGTH = 55
 
         self.zero()
+
+        self.mode = mode
 
     def zero(self):
         self.voltage_constant = '0.0'
@@ -60,18 +62,23 @@ class PowerScheduler(TdiLoadbank):
 
     def _get_line(self, pointer=1):
         if pointer is -1:
-            self.__fid.seek( self.__fid.tell() - len(self.__last_line) )
+#            print(' Position: ',self.__fid.tell(), ' Len: ', len(self.__last_line))
+            self.__fid.seek( self.__fid.tell() - len(self.__last_line) - 1)
+#            print('Now at: ', self.__fid.tell())
+#            print( list( map(float,self.__last_line.split()) ))
             return list( map(float,self.__last_line.split()) )
         self.__last_line = self.__this_line
         self.__this_line = self.__fid.readline()
+#        print('New line: ',self.__this_line, 'Len: ',len(self.__this_line))
+#        print( list( map(float,self.__this_line.split()) ))
         return list( map(float,self.__this_line.split()) )
 
     # Find this time entry
     def _find_now(self):
         psuedo_time = time.time() - self.__start_time
         try:
-            while self._get_line()[0] < psuedo_time:
-                pass  # Check next line
+           while self._get_line()[0] < psuedo_time:
+               pass  # Check next line
         except (IndexError, ValueError):
             return -1  # End of test
         return self._get_line(-1)[1]  # Set pointer to the line before
@@ -92,7 +99,6 @@ class PowerScheduler(TdiLoadbank):
         print("Firing up the engines...")
         self.__start_time = time.time()
         self.zero()
-        self.mode = "POWER"
         self.load = True
         self.__log = open(('/media/usb0/'
                            + time.strftime('%y%m%d-%H%M%S')
@@ -115,13 +121,22 @@ class PowerScheduler(TdiLoadbank):
                 setpoint = self._find_now()
                 if setpoint >= 0:
                     if setpoint != self.__setpoint:
-                        self.power_constant = str(setpoint)
-#                        self.current_constant = str(setpoint)
+                        if "VOLTAGE" in self.mode():
+                            self.voltage_constant = str(setpoint)
+                        elif "CURRENT" in self.mode():
+                            self.current_constant = str(setpoint)
+                        elif "POWER" in self.mode():
+                            self.power_constant = str(setpoint)
+                        else:
+                            print("Mode error in scheduler")
+                            return False
                         self.__setpoint = setpoint
                     return True
                 else:
+                    print('End of profile')
                     return False
             else:
+                print('Error: Loadbank setpoint below zero!')
                 return False
         else:
             return False

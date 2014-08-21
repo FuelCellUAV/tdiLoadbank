@@ -121,14 +121,12 @@ class TdiLoadbank():
             while not outbuf or outbuf.isspace():
                 outbuf = tn.read_until(expected, 0.1)  # Timeout = 0.1sec TODO
                 outbuf = outbuf.decode('ascii').strip('\r\n')
-#                print(outbuf)
                 if not outbuf or outbuf.isspace():
                     cls._flush(tn)  # Flush read buffer (needed)
                     tn.write(inbuf.encode('ascii'))
 
             return outbuf
         else:
-#            print(inbuf)
             return inbuf
         return
 
@@ -220,7 +218,6 @@ class TdiLoadbank():
     @voltage_limit.setter
     def voltage_limit(self, volts):
         self._set(self._tn, self.__VOLTAGE_LIMIT_COMMAND, volts)
-#        print('Set new vLim ' + str(self.voltage_limit))
 
     @property
     def voltage_minimum(self):
@@ -256,7 +253,6 @@ class TdiLoadbank():
     @current_limit.setter
     def current_limit(self, amps):
         self._set(self._tn, self.__CURRENT_LIMIT_COMMAND, amps)
-#        print('Set new iLim ' + str(self.current_limit))
 
 
     # POWER CONTROL
@@ -276,7 +272,6 @@ class TdiLoadbank():
     def power_constant(self, watts):
         self._set(self._tn, self.__CONSTANT_POWER_COMMAND, watts)
         self.__set_p = watts
-#        print('Set power to ' + self._get(self._tn, self.__CONSTANT_POWER_COMMAND))
 
     @property
     def power_limit(self):
