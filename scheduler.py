@@ -121,11 +121,11 @@ class PowerScheduler(TdiLoadbank):
                 setpoint = self._find_now()
                 if setpoint >= 0:
                     if setpoint != self.__setpoint:
-                        if "VOLTAGE" in self.mode():
+                        if "VOLTAGE" in self.mode:
                             self.voltage_constant = str(setpoint)
-                        elif "CURRENT" in self.mode():
+                        elif "CURRENT" in self.mode:
                             self.current_constant = str(setpoint)
-                        elif "POWER" in self.mode():
+                        elif "POWER" in self.mode:
                             self.power_constant = str(setpoint)
                         else:
                             print("Mode error in scheduler")
