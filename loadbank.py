@@ -1,4 +1,4 @@
-4  #!/usr/bin/python3
+#!/usr/bin/python3
 
 # TDi Loadbank Controller
 
@@ -19,7 +19,7 @@
 
 
 # Includes
-import telnetlib, time
+import telnetlib, time, os
 
 
 class TdiLoadbank():
@@ -50,13 +50,27 @@ class TdiLoadbank():
         self.__HOST = HOST
         self.__PORT = PORT  # Default 23 if not specified
         self.__password = password  # Default blank if not specified
-        self._tn = self._connect(HOST, PORT, password)
+
+    # Connect
+    def connect(self):
+        if os.system("ping -c 1 -w 2 " + self.__HOST + " > /dev/null 2>&1"):
+            print("Failed to detect a loadbank on network")
+            return 0
+        print("Loadbank found! Connecting...")
+
+        self._tn = self._connect(self.__HOST, self.__PORT, self.__password)
+
+        if not self.__tn:
+            print("Failed to connect to the loadbank, check password?")
+            return 0
 
         self.__set_v = self._get(self._tn, self.__CONSTANT_VOLTAGE_COMMAND).split()[0]
         self.__set_i = self._get(self._tn, self.__CONSTANT_CURRENT_COMMAND).split()[0]
         self.__set_p = self._get(self._tn, self.__CONSTANT_POWER_COMMAND).split()[0]
 
         self.mode = self._get(self._tn, self.__MODE_COMMAND)
+
+        return 1
 
 
     # Telnet connect method
