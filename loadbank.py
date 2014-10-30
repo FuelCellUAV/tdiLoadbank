@@ -60,7 +60,7 @@ class TdiLoadbank():
 
         self._tn = self._connect(self.__HOST, self.__PORT, self.__password)
 
-        if not self.__tn:
+        if not self._tn:
             print("Failed to connect to the loadbank, check password?")
             return 0
 
