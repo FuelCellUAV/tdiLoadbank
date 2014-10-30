@@ -88,6 +88,14 @@ class TdiLoadbank():
         self._tn.close()
         return 1
 
+    def zero(self):
+        time.sleep(0.1)
+        self.voltage_constant = '0.0'
+        time.sleep(0.1)
+        self.current_constant = '0.0'
+        time.sleep(0.1)
+        self.power_constant = '0.0'
+
     @staticmethod
     def _flush(tn):
         tn.read_very_eager()  # Flush read buffer
