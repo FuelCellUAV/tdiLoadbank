@@ -17,77 +17,103 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#############################################################################
 
-# Includes
+# Import Libraries
 import telnetlib, time, os
 
 
+# Define Class
 class TdiLoadbank():
-    __LOAD_COMMAND = "load"
-    __RANGE_COMMAND = "rng"
-    __MODE_COMMAND = "mode"
-    __VOLTAGE_COMMAND = "v"
-    __CURRENT_COMMAND = "i"
-    __POWER_COMMAND = "p"
-    __VOLTAGE_LIMIT_COMMAND = "vl"
-    __CURRENT_LIMIT_COMMAND = "il"
-    __POWER_LIMIT_COMMAND = "pl"
-    __VOLTAGE_MINIMUM_COMMAND = "uv"
-
-    __CONSTANT_VOLTAGE_COMMAND = "cv"
-    __CONSTANT_CURRENT_COMMAND = "ci"
-    __CONSTANT_POWER_COMMAND = "cp"
-
-    __mode    = ""
-    __voltage = 0
-    __current = 0
-    __power   = 0    
-    __set_v   = "0"
-    __set_i   = "0"
-    __set_p   = "0"
-
+    # Code to run when class is created
     def __init__(self, HOST, PORT=23, password=''):
+        
+        # Define network connection information
         self.__HOST = HOST
         self.__PORT = PORT  # Default 23 if not specified
         self.__password = password  # Default blank if not specified
+        
+        # Define Loadbank commands
+        self.__LOAD_COMMAND = "load"
+        self.__RANGE_COMMAND = "rng"
+        self.__MODE_COMMAND = "mode"
+        self.__VOLTAGE_COMMAND = "v"
+        self.__CURRENT_COMMAND = "i"
+        self.__POWER_COMMAND = "p"
+        self.__VOLTAGE_LIMIT_COMMAND = "vl"
+        self.__CURRENT_LIMIT_COMMAND = "il"
+        self.__POWER_LIMIT_COMMAND = "pl"
+        self.__VOLTAGE_MINIMUM_COMMAND = "uv"
+        self.__CONSTANT_VOLTAGE_COMMAND = "cv"
+        self.__CONSTANT_CURRENT_COMMAND = "ci"
+        self.__CONSTANT_POWER_COMMAND = "cp"
 
-    # Connect
+        # Define internal variables
+        self.__mode    = ""
+        self.__voltage = 0
+        self.__current = 0
+        self.__power   = 0    
+        self.__set_v   = "0"
+        self.__set_i   = "0"
+        self.__set_p   = "0"
+
+    # Method to connect over the network
     def connect(self):
+        
+        # Ping the loadbank first to see if it is there
         if os.system("ping -c 1 -w 2 " + self.__HOST + " > /dev/null 2>&1"):
             print("Failed to detect a loadbank on network")
             return 0
         print("Loadbank found! Connecting...")
 
+        # Connect using telnet
         self._tn = self._connect(self.__HOST, self.__PORT, self.__password)
 
         if not self._tn:
             print("Failed to connect to the loadbank, check password?")
             return 0
 
+        # Get safety limits
         self.__set_v = self._get(self._tn, self.__CONSTANT_VOLTAGE_COMMAND).split()[0]
         self.__set_i = self._get(self._tn, self.__CONSTANT_CURRENT_COMMAND).split()[0]
         self.__set_p = self._get(self._tn, self.__CONSTANT_POWER_COMMAND).split()[0]
 
+        # Get current mode
         self.mode = self._get(self._tn, self.__MODE_COMMAND)
 
+        # Everything working, return 1
         return 1
 
 
-    # Telnet connect method
+    # Method to connect over Telnet
     @classmethod
     def _connect(cls, HOST, PORT, password):
+        
+        # Initiate connection
         tn = telnetlib.Telnet(HOST, PORT)
+        
+        # If we have a password...
         if password:
+            
+            # Wait for the loadbank to ask us for a password
             tn.read_until(b"Password ? ")
+            
+            # Write the password to the Loadbank
             tn.write(password.encode('ascii') + b"\r\n")
+            
+        # Clear the buffer
         cls._flush(tn)  # Flush read buffer (needed)
+        
+        # Return the Telnet handle
         print('\nLoadbank connected!\n')
         return tn
 
+    # Method to close down the connection
     def shutdown(self):
         self._tn.close()
         return 1
 
+    # Method to zero the Loadbank
     def zero(self):
         time.sleep(0.1)
         self.voltage_constant = '0.0'
@@ -96,38 +122,64 @@ class TdiLoadbank():
         time.sleep(0.1)
         self.power_constant = '0.0'
 
+    # Method to clear the buffer
     @staticmethod
     def _flush(tn):
         tn.read_very_eager()  # Flush read buffer
 
+    # Method to set a value
     @classmethod
     def _set(cls, tn, command, value):
+        
+        # Build the command in the correct format
         buf = (command + ' ' + value + '\r')
+        
+        # Send the command over the network
         cls._send(tn, buf)
 
+    # Method to get a string of text
     @classmethod
     def _get(cls, tn, command):
+        
+        # Queries end with a '?', append if necessary
         if not command.endswith('?'):
             command += '?'
+            
+        # Build the query in the correct format
         buf = (command + '\r')
+        
+        # Send the query over the network
         return str(cls._send(tn, buf))
 
+    # Method to get a number **recursive**
     @classmethod
     def _get_float(cls, tn, command):
+        
+        # Get the raw data string
         data = cls._get(tn, command)
-        try: # Recursive until we get a valid answer
+        
+        # Look for a valid reply
+        try:
             return float(data.split()[0])
+            
+        # No valid reply so run the method again
         except ValueError:
-            return cls._get_float(tn, command)
+            return cls._get_float(tn, command) # **recursivity**
 
     # Method to handle data 2way telnet datastream
     @classmethod
     def _send(cls, tn, inbuf):
-        cls._flush(tn)  # Flush read buffer (needed)
+        
+        # Flush the buffer
+        cls._flush(tn)
+        
+        # Create some memory
         outbuf = ""
 
+        # Send the query or command to the Loadbank
         tn.write(inbuf.encode('ascii'))
 
+        # Was it a query? If so what is the expected reply?
         if '?' in inbuf:
             if 'v' in inbuf:
                 expected = b'volts'
@@ -140,22 +192,38 @@ class TdiLoadbank():
             else:
                 expected = b'\r'
 
+            # Check if the Loadbank acknowledged the query
             while not outbuf or outbuf.isspace():
+                
+                # Look for the expected reply or timeout
                 outbuf = tn.read_until(expected, 0.1)  # Timeout = 0.1sec TODO
+                
+                # Decode the reply
                 outbuf = outbuf.decode('ascii').strip('\r\n')
+                
+                # If the reply is not what we expected...
                 if not outbuf or outbuf.isspace():
-                    cls._flush(tn)  # Flush read buffer (needed)
+                    # Flush the buffer
+                    cls._flush(tn)
+                    
+                    # Send the query again
                     tn.write(inbuf.encode('ascii'))
 
+            # Return the query reply
             return outbuf
+            
+        # Was a command not a query, no reply expected.
         else:
             return inbuf
-        return
 
-    # LOAD ON/OFF
+    # Property - Is the load on or off?
     @property
     def load(self):
+        
+        # Query the Loadbank
         state = self._get(self._tn, self.__LOAD_COMMAND)
+        
+        # Return the answer in boolean
         if "on" in state:
             return True
         elif "off" in state:
@@ -163,6 +231,7 @@ class TdiLoadbank():
         else:
             return "UNKNOWN STATE"
 
+    # Property - Set the Loadbank on or off
     @load.setter
     def load(self, state):
         if state:
@@ -170,20 +239,23 @@ class TdiLoadbank():
         else:
             self._set(self._tn, self.__LOAD_COMMAND, "off")
 
-    # RANGE 1-9
+    # Property - What is the Loadbank sensitivity range (see Loadbank manual)
     @property
     def range(self):
         return self._get(self._tn, self.__RANGE_COMMAND)
 
+    # Property - Set a new range
     @range.setter
     def range(self, setting):
+        
+        # Sanity check that the request is a number 0-9
         if int(setting) in range(1,10):
             self._set(self._tn, self.__RANGE_COMMAND, setting)
             print('Set new rng ' + self.range)
         else:
-            print('Invalid range setting for loadbank')
+            raise ValueError
 
-    # MODE
+    # Property - What is the current Loadbank mode
     @property
     def mode(self):
         if "VOLTAGE" in self.__mode:
@@ -195,6 +267,7 @@ class TdiLoadbank():
         else:
             self.__setpoint = "error getting mode"
 
+    # Property - Set new Loadbank mode
     @mode.setter
     def mode(self, op_mode):
         op_mode = op_mode.lower()  # Change any capitals to lower case
@@ -208,97 +281,99 @@ class TdiLoadbank():
             self._set(self._tn, self.__MODE_COMMAND, self.__CONSTANT_POWER_COMMAND)
             self.__mode =  "POWER"
 
-
+    # Update electrical data
     def update(self):
         self.__voltage = self._get_float(self._tn, self.__VOLTAGE_COMMAND)
         self.__current = self._get_float(self._tn, self.__CURRENT_COMMAND)
         self.__power   = self._get_float(self._tn, self.__POWER_COMMAND)
 
 
-    # VOLTAGE CONTROL
+    # Property - What is the voltage?
     @property
     def voltage(self):
         return self.__voltage
 
-    @voltage.setter
-    def voltage(self, volts):
-        self._set(self._tn, self.__VOLTAGE_COMMAND, volts)
-
+    # Property - What is the voltage setpoint
     @property
     def voltage_constant(self):
         return self.__set_v
 
+    # Propert - Set a new voltage setpoint
     @voltage_constant.setter
     def voltage_constant(self, volts):
         self._set(self._tn, self.__CONSTANT_VOLTAGE_COMMAND, volts)
         self.__set_v = volts
 
+    # Property - What is the maximum voltage limit?
     @property
     def voltage_limit(self):
         return self._get_float(self._tn, self.__VOLTAGE_LIMIT_COMMAND)
 
+    # Property - Set a new maximum voltage limit
     @voltage_limit.setter
     def voltage_limit(self, volts):
         self._set(self._tn, self.__VOLTAGE_LIMIT_COMMAND, volts)
 
+    # Property - What is the mimimum voltage limit?
     @property
     def voltage_minimum(self):
         return self._get_float(self._tn, self.__VOLTAGE_MINIMUM_COMMAND)
 
+    # Property - Set a new minimum voltage limit
     @voltage_minimum.setter
     def voltage_minimum(self, volts):
         self._set(self._tn, self.__VOLTAGE_MINIMUM_COMMAND, volts)
 
 
-    # CURRENT CONTROL
+    # Property - What is the current?
     @property
     def current(self):
         return self.__current
 
-    @current.setter
-    def current(self, amps):
-        self._set(self._tn, self.__CURRENT_COMMAND, amps)
-
+    # Property - What is the current setpoint?
     @property
     def current_constant(self):
         return self.__set_i
 
+    # Property - Set a new current setpoint
     @current_constant.setter
     def current_constant(self, amps):
         self._set(self._tn, self.__CONSTANT_CURRENT_COMMAND, amps)
         self.__set_i = amps
  
+    # Property - What is the maximum current limit?
     @property
     def current_limit(self):
         return self._get_float(self._tn, self.__CURRENT_LIMIT_COMMAND)
 
+    # Property - Set a new maximum current limit?
     @current_limit.setter
     def current_limit(self, amps):
         self._set(self._tn, self.__CURRENT_LIMIT_COMMAND, amps)
 
 
-    # POWER CONTROL
+    # Property - What is the power?
     @property
     def power(self):
         return self.__power
 
-    @power.setter
-    def power(self, watts):
-        self._set(self._tn, self.__POWER_COMMAND, watts)
-
+    # Property - What is the power setpoint?
     @property
     def power_constant(self):
         return self.__set_p
 
+    # Property - Set a new power setpoint?
     @power_constant.setter
     def power_constant(self, watts):
         self._set(self._tn, self.__CONSTANT_POWER_COMMAND, watts)
         self.__set_p = watts
 
+    # Property - What is the maximum power limit?
     @property
     def power_limit(self):
         return self._get_float(self._tn, self.__POWER_LIMIT_COMMAND)
 
+    # Property - Set a new maximum power limit?
     @power_limit.setter
     def power_limit(self, watts):
         self._set(self._tn, self.__POWER_LIMIT_COMMAND, watts)
