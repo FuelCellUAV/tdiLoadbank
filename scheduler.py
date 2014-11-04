@@ -17,12 +17,16 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#############################################################################
+
 # Import libraries
 import time
 from .loadbank import TdiLoadbank
 
 
+# Define Class
 class PowerScheduler(TdiLoadbank):
+    # Code to run when class is created
     def __init__(self, mode, filename, out, HOST, PORT=23, password=''):
         super(PowerScheduler, self).__init__(HOST, PORT, password)
         self.__filename = filename
@@ -40,114 +44,151 @@ class PowerScheduler(TdiLoadbank):
         self.zero()
 
         self.mode = mode
-
-    def zero(self):
-        self.voltage_constant = '0.0'
-        self.current_constant = '0.0'
-        self.power_constant = '0.0'
-
-    @classmethod
-    def _open(cls, filename):
-        return open(filename)
         
-    @classmethod
-    def _close(cls, fid):
-        fid.close()
-
-    def shutdown(self):
-        self.zero()
-        self._close(self.__fid)
-        self._tn.close()
-        return 1
-
+    
+    # Method to read a line
     def _get_line(self, pointer=1):
+        # If we want to re-read the last line...
         if pointer is -1:
-#            print(' Position: ',self.__fid.tell(), ' Len: ', len(self.__last_line))
-            self.__fid.seek( self.__fid.tell() - len(self.__last_line) - 1)
-#            print('Now at: ', self.__fid.tell())
-#            print( list( map(float,self.__last_line.split()) ))
-            return list( map(float,self.__last_line.split()) )
+            # Move the cursor backwards to the start of the last line
+            self.__fid.seek( self.__fid.tell() - len(self.__this_line) )
+            
+        # Save our last line
         self.__last_line = self.__this_line
+        
+        # Update our current line
         self.__this_line = self.__fid.readline()
-#        print('New line: ',self.__this_line, 'Len: ',len(self.__this_line))
-#        print( list( map(float,self.__this_line.split()) ))
+
+        # Return the line as single row of columns
         return list( map(float,self.__this_line.split()) )
 
-    # Find this time entry
+    # Method to find the setpoint relative to system time
     def _find_now(self):
+        # Calculate time since start of schedule
         psuedo_time = time.time() - self.__start_time
+        
+        # Check if the current setpoint has expired
         try:
-           while self._get_line()[0] < psuedo_time:
+            if list( map(float,self.__this_line.split()) )[0] > psuedo_time:
+                # If it hasn't expired, return this setpoint
+                return list( map(float,self.__this_line.split()) )[1]
+                
+        # If there is an IndexError it is the first record so ignore
+        except (IndexError):
+            pass
+        
+        # The current setpoint has expired so get the next one
+        try:
+           x = self._get_line()
+           
+           # Find the next non-expired setpoint
+           while float(x[0]) < psuedo_time:
+               x = self._get_line()
                pass  # Check next line
+           
+        # An exception of these types means end of test
         except (IndexError, ValueError):
-            return -1  # End of test
-        return self._get_line(-1)[1]  # Set pointer to the line before
+            return -1
+            
+        # Return this new unexpired setpoint
+        return x[1]
 
+    # Property - Is the schedule currently running?
     @property
     def running(self):
         return self.__running
 
+    # Property - Set the scheduler as running
     @running.setter
     def running(self, state):
+        # If we want to turn on and not already running...
         if state and not self.__running:
             self._start()
+        # If we want to turn off and not already off...
         elif not state and self.__running:
             self._stop()
 
+    # Method to start the scheduler
     def _start(self):
-        # Turn on
+        # Tell the user we are trying to start
         print("Firing up the engines...")
+        
+        # Open the profile file
+        self.__fid = open(self.__filename)
+        
+        # Set the schedule start time
         self.__start_time = time.time()
-        self.zero()
-        self.load = True
-        self.__log = open(('/media/usb0/'
-                           + time.strftime('%y%m%d-%H%M%S')
-                           + '-profile-' + self.__out + '.tsv'), 'w')
+        
+        # Put the setpoint to zero for safety
+        self.__setpoint = 0
+        
+        # Set the class flag as running
         self.__running = 1
+        
+        # Tell the user we are now running
         print("Chocks away!")
 
+    # Method to stop the scheduler
     def _stop(self):
-        # Turn off
+        # Tell the user we are trying to stop
         print("Landing...")
-        self.zero()
-        self.load = False
-        self.__log.close()
+        
+        # Set the class flag to stopped
         self.__running = 0
+        
+        # Close the profile file
+        self.__fid.close()
+        
+        # Tell the user we have stopped running
         print("Back in hangar!\n")
 
+    # Internal method to run the scheduler
     def _run(self):
+        # Check if we are actually running
         if self.__running:
+            
+            # Check the setpoint isn't in a safety error state (-1)
             if self.__setpoint >= 0:
+                
+                # Get the setpoint for this time
                 setpoint = self._find_now()
+                
+                # If the setpoint isn't in a safety error state (-1)...
                 if setpoint >= 0:
+                    
+                    # If the setpoint has changed since last time...
                     if setpoint != self.__setpoint:
-                        if "VOLTAGE" in self.mode:
-                            self.voltage_constant = str(setpoint)
-                        elif "CURRENT" in self.mode:
-                            self.current_constant = str(setpoint)
-                        elif "POWER" in self.mode:
-                            self.power_constant = str(setpoint)
-                        else:
-                            print("Mode error in scheduler")
-                            return False
+                        
+                        # Update the memory
                         self.__setpoint = setpoint
-                    return True
+                        
+                        # Return the new setpoint
+                        return self.__setpoint
+                    
+                    # Otherwise return the old setpoint
+                    else:
+                        return self.__setpoint
+                
+                # Otherwise we are in error so return the error code -1
                 else:
-                    print('End of profile')
-                    return False
+                    return -1
+                    
+            # Otherwise we are in error so return the error code -1
             else:
-                print('Error: Loadbank setpoint below zero!')
-                return False
+                return -1
+                
+        # Otherwise we are not running so return the error code -1
         else:
-            return False
+            return -1
 
+    # Method to run the scheduler
     def run(self):
-        # Do more running
-        self.running = self._run()
-
-        if self.__running:
-            self.__log.write(str(time.time()) + '\t')
-            self.__log.write(str(self.current_constant) + '\t')
-            self.__log.write(str(self.voltage) + '\t')
-            self.__log.write(str(self.current) + '\t')
-            self.__log.write(str(self.power) + '\n')
+        # Run the internal method
+        running = self._run()
+        
+        # If we are currenty running but we have hit the end of file or an error...
+        if self.__running and running is -1:
+            self._stop()
+            
+        # Return the run state
+        return running
