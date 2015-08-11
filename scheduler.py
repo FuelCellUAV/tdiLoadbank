@@ -2,7 +2,7 @@
 
 # Power demand scheduler for a loadbank
 
-# Copyright (C) 2014  Simon Howroyd
+# Copyright (C) 2015  Simon Howroyd
 # 
 #     This program is free software: you can redistribute it and/or modify
 #     it under the terms of the GNU General Public License as published by
@@ -21,31 +21,20 @@
 
 # Import libraries
 import time
-from .loadbank import TdiLoadbank
 
 
-# Define Class
-class PowerScheduler(TdiLoadbank):
+# Define class
+class Scheduler():
     # Code to run when class is created
-    def __init__(self, mode, filename, out, HOST, PORT=23, password=''):
-        super(PowerScheduler, self).__init__(HOST, PORT, password)
+    def __init__(self, filename):
         self.__filename = filename
-        self.__fid = self._open(filename)
         self.__last_line = ''
         self.__this_line = ''
         self.__start_time = time.time()
-        self.__out = out
         self.__running = 0
         self.__setpoint = 0
         self.__setpoint_last = -1
 
-        self.__LINE_LENGTH = 55
-
-        self.zero()
-
-        self.mode = mode
-        
-    
     # Method to read a line
     def _get_line(self, pointer=1):
         # If we want to re-read the last line...
@@ -101,6 +90,7 @@ class PowerScheduler(TdiLoadbank):
     # Property - Set the scheduler as running
     @running.setter
     def running(self, state):
+        state = int(state)        
         # If we want to turn on and not already running...
         if state and not self.__running:
             self._start()
