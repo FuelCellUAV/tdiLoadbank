@@ -110,17 +110,21 @@ class TdiLoadbank():
 
     # Method to close down the connection
     def shutdown(self):
+        time.sleep(0.4)
+        self.load = False
+        self.zero()
         self._tn.close()
         return 1
 
     # Method to zero the Loadbank
     def zero(self):
-        time.sleep(0.1)
-        self.voltage_constant = '0.0'
-        time.sleep(0.1)
-        self.current_constant = '0.0'
-        time.sleep(0.1)
-        self.power_constant = '0.0'
+        time.sleep(0.4)
+        if "VOLTAGE" in self.mode:
+            self.voltage_constant = '0.0'
+        elif "CURRENT" in self.mode:
+            self.current_constant = '0.0'
+        elif "POWER" in self.mode:
+            self.power_constant = '0.0'
 
     # Method to clear the buffer
     @staticmethod

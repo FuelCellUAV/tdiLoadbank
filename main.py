@@ -152,7 +152,7 @@ def _print_electric(load, destination, verbose=False):
     # If there is a digital loadbank connected get that data
     if load:
         if verbose:
-            mode_code = load.mode.split()[0] + load.mode.split()[1]
+            mode_code = load.mode.split()[0] + '\t' + load.mode.split()[1]
 
             # Add the load data to the controller data
             electric = ["Mode:",  mode_code,
@@ -162,13 +162,13 @@ def _print_electric(load, destination, verbose=False):
         else:
             # Convert mode to a code for Matlab compatibility
             if "CURRENT" in load.mode:
-                mode_code = "1 " + load.mode.split()[1]
+                mode_code = "1\t" + load.mode.split()[1]
             elif "VOLTAGE" in load.mode:
-                mode_code = "2 " + load.mode.split()[1]
+                mode_code = "2\t" + load.mode.split()[1]
             elif "POWER" in load.mode:
-                mode_code = "3 " + load.mode.split()[1]
+                mode_code = "3\t" + load.mode.split()[1]
             else:
-                mode_code = 999
+                mode_code = "999\t999"
 
             # Add the load data to the controller data
             electric = [mode_code,
@@ -320,7 +320,7 @@ if __name__ == "__main__":
         timeStart = time.time()
 
         # Display a list of available user commands
-        print("Type command: [time, elec, v, i, auto, go] \n"
+        print("\n\nType command: [time, elec, v, i, auto, go] \n"
             + "add ? to query or space then setpoint \n"
             + "e.g. 'v?' or 'go 1'\n\n")
 
@@ -338,7 +338,9 @@ if __name__ == "__main__":
             ## Handle the voltage controller
             if args.auto:
                 if not flag:
+                    time.sleep(1)
                     auto_voltage = load.voltage
+                    print("Set voltage hold to " + str(auto_voltage) +"V")
                     load.load = True
                     flag = True
                 else:
@@ -354,7 +356,7 @@ if __name__ == "__main__":
             ## Handle the profile
             if profile:
                 try:
-                    if profile.running:                    
+                    if profile.running is 1:
                         # Get the programmed setpoint
                         setpoint = profile.run()
                         
@@ -383,6 +385,8 @@ if __name__ == "__main__":
                             # Setpoint is in an error mode (eg profile finished) so turn off
                             else:
                                 load.load = False
+                                load.zero()
+                                args_auto = False
 
                 except AttributeError:
                     print("No profile loaded. Restart the programme with --profile filename.txt")
@@ -427,7 +431,7 @@ if __name__ == "__main__":
                 # If only one piece of information, it is a request for data
                 if req_len is 1:
                     if request[0].startswith("time?"):
-                        _print_time(my_time, print, True)
+                        _print_time(timeStart, print, True)
                     elif request[0].startswith("elec?"):
                         _print_electric(load, print, True)
                     elif request[0].startswith("v?"):
@@ -439,8 +443,10 @@ if __name__ == "__main__":
                     elif request[0].startswith("auto?"):
                         print("Voltage controller set to " + str(auto_voltage) + "V")
                     elif request[0].startswith("go?"):
-                        if profile and profile.running:
+                        if profile and profile.running is 1:
                             print("Profile running")
+                        elif profile and profile.running is 2:
+                            print("Profile paused")
                         else:
                             print("Profile stopped")
         
@@ -450,8 +456,16 @@ if __name__ == "__main__":
                         if not profile: print("No profile loaded. Restart the programme with --profile filename.txt")
                         elif request[1].startswith("on"):
                             profile.running = 1
+                        elif request[1].startswith("pause"):
+                            profile.running = 2
+                            load.load = False
+                            load.zero()
+                            args_auto = False
                         else:
                             profile.running = 0
+                            load.load = False
+                            load.zero()
+                            args_auto = False
                     elif request[0].startswith("auto"):
                         if request[1].startswith("on"):
                             args.auto = True
@@ -476,7 +490,8 @@ if __name__ == "__main__":
 
     except (SystemExit, KeyboardInterrupt):
         print("Shutting down programme")
-        _shutdown(load, log)
+        try: _shutdown(load, log)
+        except NameError: pass
         sys.exit()
 
     #######

@@ -20,7 +20,7 @@
 #############################################################################
 
 # Import libraries
-import time
+import time, os.path
 
 
 # Define class
@@ -28,13 +28,20 @@ class Scheduler():
     # Code to run when class is created
     def __init__(self, filename):
         self.__filename = filename
+        if os.path.isfile(filename):
+            self.__filename = filename
+        else:
+            print("\nInvalid profile filename\n")
+            raise SystemExit
         self.__last_line = ''
         self.__this_line = ''
         self.__start_time = time.time()
         self.__running = 0
         self.__setpoint = 0
         self.__setpoint_last = -1
-
+        self.__paused_time = 0.0
+        self.__paused_at = 0.0
+	
     # Method to read a line
     def _get_line(self, pointer=1):
         # If we want to re-read the last line...
@@ -54,7 +61,7 @@ class Scheduler():
     # Method to find the setpoint relative to system time
     def _find_now(self):
         # Calculate time since start of schedule
-        psuedo_time = time.time() - self.__start_time
+        psuedo_time = time.time() - self.__start_time - self.__paused_time
         
         # Check if the current setpoint has expired
         try:
@@ -92,8 +99,11 @@ class Scheduler():
     def running(self, state):
         state = int(state)        
         # If we want to turn on and not already running...
-        if state and not self.__running:
+        if state is 1 and not self.__running:
             self._start()
+        # If we want to pause/unpause or user unpauses using state 1...
+        elif (state is 2 and self.__running) or (state is 1 and self.__running is 2):
+            self._pause()
         # If we want to turn off and not already off...
         elif not state and self.__running:
             self._stop()
@@ -104,7 +114,11 @@ class Scheduler():
         print("Firing up the engines...")
         
         # Open the profile file
-        self.__fid = open(self.__filename)
+        try:
+            self.__fid = open(self.__filename)
+        except IOError:
+            print("Can't open profile file!")
+            raise SystemExit
         
         # Set the schedule start time
         self.__start_time = time.time()
@@ -117,6 +131,16 @@ class Scheduler():
         
         # Tell the user we are now running
         print("Chocks away!")
+
+    # Method to pause the profile
+    def _pause(self):
+        if self.__running is 2:
+            self.__running = 1
+            print("...unpaused")
+        elif self.__running is 1:
+            self.__paused_at = time.time()        
+            self.__running = 2
+            print("Paused...")
 
     # Method to stop the scheduler
     def _stop(self):
@@ -135,7 +159,7 @@ class Scheduler():
     # Internal method to run the scheduler
     def _run(self):
         # Check if we are actually running
-        if self.__running:
+        if self.__running is 1:
             
             # Check the setpoint isn't in a safety error state (-1)
             if self.__setpoint >= 0:
@@ -166,7 +190,13 @@ class Scheduler():
             # Otherwise we are in error so return the error code -1
             else:
                 return -1
-                
+
+        # Check if paused
+        elif self.__running is 2:
+            self.__paused_time = self.__paused_time + (time.time() - self.__paused_at)
+            self.__paused_at = time.time()
+            return -1
+
         # Otherwise we are not running so return the error code -1
         else:
             return -1
@@ -177,8 +207,9 @@ class Scheduler():
         running = self._run()
         
         # If we are currenty running but we have hit the end of file or an error...
-        if self.__running and running is -1:
+        if self.__running is 1 and running is -1:
             self._stop()
+#        elif self.__running is 2:
             
         # Return the run state
         return running
