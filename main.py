@@ -317,7 +317,7 @@ if __name__ == "__main__":
         args = _parse_commandline()
 
         # Initialise Digital loadbank
-        load = loadbank.TdiLoadbank('158.125.152.225', 10001, 'fuelcell')
+        load = loadbank.TdiLoadbank('158.125.152.246', 10001, 'fuelcell')
 
         # If we cannot connect to the loadbank, quit
         if load.connect() == 0:
