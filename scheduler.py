@@ -209,17 +209,17 @@ class Scheduler():
                 
                 # Otherwise we have just finished!
                 else:
-                    self._stop()
+                    self.state = 0
                     return -1
                     
             # Otherwise we are in error so return the error code -1
             else:
-                self._stop()
+                self.state = 0
                 return -1
 
         # Otherwise we are not running so return the error code -1
         else:
-            self.stop() # TODO is this needed?
+            self.state = 0
             return -1
 
     # Method to run the scheduler
