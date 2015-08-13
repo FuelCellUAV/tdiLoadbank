@@ -64,13 +64,15 @@ class TdiLoadbank():
         if os.system("ping -c 1 -w 2 " + self.__HOST + " > /dev/null 2>&1"):
             print("Failed to detect a loadbank on network")
             return 0
-        print("Loadbank found! Connecting...")
+        print("Loadbank found! Connecting...", end="")
 
         # Connect using telnet
         self._tn = self._connect(self.__HOST, self.__PORT, self.__password)
 
-        if not self._tn:
-            print("Failed to connect to the loadbank, check password?")
+        if self._tn:
+            print("connected!\n")
+        else:
+            print("Failed, check password?\n")
             return 0
 
         # Get safety limits
@@ -105,7 +107,6 @@ class TdiLoadbank():
         cls._flush(tn)  # Flush read buffer (needed)
         
         # Return the Telnet handle
-        print('\nLoadbank connected!\n')
         return tn
 
     # Method to close down the connection

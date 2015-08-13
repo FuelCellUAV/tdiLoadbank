@@ -53,7 +53,7 @@ def _parse_commandline():
     
     # Define aguments
     parser.add_argument('--out', type=str, default='', help='Save my data to USB stick')
-    parser.add_argument('--verbose', type=int, default=0, help='Print log to screen')
+    parser.add_argument('--verbose', default=False, action='store_true', help='Print log to screen')
     parser.add_argument('--profile', type=str, default='', help='Name of flight profile file')
     parser.add_argument('--auto', default=False, action='store_true', help='Auto voltage hold')
 
@@ -123,6 +123,48 @@ def _voltage_controller(v_now, v_set, i_now):
     if controller_current < 0.0: controller_current = 0.0
    
     return controller_current
+
+
+## Function to print command list to screen
+def _print_help(destination):
+    help_text = ["\nHere is a list of available commands. There may be more!\n",
+                 "\n",
+                 "Time:\n",
+                 "\t'time?'         [epoch since_start]s\n",
+                 "\n",
+                 "Electric data output:\n",
+                 "\t'python3 main.py --verbose'\n",
+                 "\t'python3 main.py --out your_filename_tag'\n",
+                 "\t'v?'            [voltage]V\n",
+                 "\t'i?'            [current]A\n",
+                 "\t'p?'            [power]W\n",
+                 "\t'elec?'         [mode setpoint voltage current power]\n",
+                 "\n",
+                 "Loadbank control:\n",
+                 "\t'v 1.5'         [set 1.5V]\n",
+                 "\t'i 2.0'         [set 2.0A]\n",
+                 "\t'load on'\n",
+                 "\t'load off'\n",
+                 "\t'auto?'         [voltage controller state]\n",
+                 "\t'auto on'       [turn voltage controller on]\n",
+                 "\t'auto off'      [turn voltage controller off]\n",
+                 "\n",
+                 "Profile scheduler:\n",
+                 "\t'python3 main.py --profile filename_on_usb_stick.txt'\n",
+                 "\t'profile?'      [profile state]]\n",
+                 "\t'profile on'    [start profile]\n",
+                 "\t'profile pause' [pause profile]\n",
+                 "\t'profile off'   [stop  profile]\n",
+                 "\n",
+                 "*run commands can be stacked, eg:\n",
+                 "\tpython3 main.py --verbose --out test1 --profile my_profile.txt\n\n"]
+
+    # Write the data to destination
+    for cell in help_text:
+        _writer(destination, cell)
+
+    # Return the text
+    return help_text
 
 
 ## Function to print the time
@@ -320,9 +362,9 @@ if __name__ == "__main__":
         timeStart = time.time()
 
         # Display a list of available user commands
-        print("\n\nType command: [time, elec, v, i, auto, go] \n"
+        print("\n\nType command:\n"
             + "add ? to query or space then setpoint \n"
-            + "e.g. 'v?' or 'go 1'\n\n")
+            + "**Type 'help' for a full list**\n\n")
 
         flag = False
         auto_voltage = 0.0
@@ -356,7 +398,7 @@ if __name__ == "__main__":
             ## Handle the profile
             if profile:
                 try:
-                    if profile.running is 1:
+                    if profile.running:
                         # Get the programmed setpoint
                         setpoint = profile.run()
                         
@@ -384,6 +426,7 @@ if __name__ == "__main__":
                                 
                             # Setpoint is in an error mode (eg profile finished) so turn off
                             else:
+                                print("paused")
                                 load.load = False
                                 load.zero()
                                 args_auto = False
@@ -430,7 +473,9 @@ if __name__ == "__main__":
         
                 # If only one piece of information, it is a request for data
                 if req_len is 1:
-                    if request[0].startswith("time?"):
+                    if request[0].startswith("help"):
+                        _print_help(print)
+                    elif request[0].startswith("time?"):
                         _print_time(timeStart, print, True)
                     elif request[0].startswith("elec?"):
                         _print_electric(load, print, True)
@@ -442,7 +487,7 @@ if __name__ == "__main__":
                         _print_power(load, print, True)
                     elif request[0].startswith("auto?"):
                         print("Voltage controller set to " + str(auto_voltage) + "V")
-                    elif request[0].startswith("go?"):
+                    elif request[0].startswith("profile?"):
                         if profile and profile.running is 1:
                             print("Profile running")
                         elif profile and profile.running is 2:

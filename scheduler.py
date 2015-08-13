@@ -61,7 +61,7 @@ class Scheduler():
     # Method to find the setpoint relative to system time
     def _find_now(self):
         # Calculate time since start of schedule
-        psuedo_time = time.time() - self.__start_time - self.__paused_time
+        psuedo_time = self._get_psuedo_time()
         
         # Check if the current setpoint has expired
         try:
@@ -136,11 +136,18 @@ class Scheduler():
     def _pause(self):
         if self.__running is 2:
             self.__running = 1
-            print("...unpaused")
+            paused_for = time.time() - self.__paused_at - 0.00015 # [Crudely] Calibrated for average CPU time
+            self.__paused_time = self.__paused_time + paused_for
+            print("...unpaused after " + str(paused_for) + "s, continuing from " + str(self._get_psuedo_time()) + "s")
         elif self.__running is 1:
-            self.__paused_at = time.time()        
+            self.__paused_at = time.time()
             self.__running = 2
-            print("Paused...")
+            print("Paused at " + str(self._get_psuedo_time()) + "s,")
+            print("Use 'profile pause' again to continue...")
+
+    # Calculate psuedo time. Time since start not including pauses
+    def _get_psuedo_time(self):
+        return time.time() - self.__start_time - self.__paused_time
 
     # Method to stop the scheduler
     def _stop(self):
@@ -193,8 +200,9 @@ class Scheduler():
 
         # Check if paused
         elif self.__running is 2:
-            self.__paused_time = self.__paused_time + (time.time() - self.__paused_at)
-            self.__paused_at = time.time()
+#            self.__paused_time = self.__paused_time + (time.time() - self.__paused_at)
+#            self.__paused_at = time.time() - 0.00003 # execution time
+#            print("Paused " + str(self.__paused_time) + "s")
             return -1
 
         # Otherwise we are not running so return the error code -1
@@ -209,7 +217,9 @@ class Scheduler():
         # If we are currenty running but we have hit the end of file or an error...
         if self.__running is 1 and running is -1:
             self._stop()
-#        elif self.__running is 2:
+
+#        if self.__running is 2:
+#            print("State is " + str(self.__running) + ".  Cumulative pause is " + str(self._get_psuedo_time()))
             
         # Return the run state
         return running
