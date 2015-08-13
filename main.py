@@ -398,39 +398,46 @@ if __name__ == "__main__":
             ## Handle the profile
             if profile:
                 try:
-                    if profile.running:
+                    # Running
+                    if profile.state is 1:
+                        # Check if just [re]started
+                        if profile.state_last is not 1:
+                            print("Turning loadbank on")
+                            load.load = True
+
                         # Get the programmed setpoint
                         setpoint = profile.run()
-                        
-                        # If the output is the digital loadbank...
-                        if "loadbank" in output and load:
-                        
-                            # and the setpoint is not in an error mode...
-                            if setpoint >= 0:
-                            
-                                # Turn the loadbank on
-                                load.load = True
-                            
-                                # Set the type of electrical profile we are running
-                                mode = load.mode
-                            
-                                # Set the setpoint for the electrical profile for now
-                                if args.auto:
-                                    auto_voltage = float(setpoint)
-                                elif "VOLTAGE" in mode:
-                                    load.voltage_constant = str(setpoint)
-                                elif "CURRENT" in mode:
-                                    load.current_constant = str(setpoint)
-                                elif "POWER" in mode:
-                                    load.power_constant = str(setpoint)
-                                
-                            # Setpoint is in an error mode (eg profile finished) so turn off
-                            else:
-                                print("paused")
-                                load.load = False
-                                load.zero()
-                                args_auto = False
 
+                        # and the setpoint is not in an error mode...
+                        if setpoint >= 0:
+                            
+                            # Set the type of electrical profile we are running
+                            mode = load.mode
+                            
+                            # Set the setpoint for the electrical profile for now
+                            if args.auto:
+                                auto_voltage = float(setpoint)
+                            elif "VOLTAGE" in mode:
+                                load.voltage_constant = str(setpoint)
+                            elif "CURRENT" in mode:
+                                load.current_constant = str(setpoint)
+                            elif "POWER" in mode:
+                                load.power_constant = str(setpoint)
+
+                    # Paused
+                    elif profile.state is 2:
+                        if profile.state_last is 1:
+                            load.load = False
+                            load.zero()
+                            args.auto = False
+                        pass
+                    # Stopped
+                    else:
+                        if profile.state_last in (1, 2):
+                            load.load = False
+                            load.zero()
+                            args.auto = False
+                    
                 except AttributeError:
                     print("No profile loaded. Restart the programme with --profile filename.txt")
                     break
@@ -488,9 +495,9 @@ if __name__ == "__main__":
                     elif request[0].startswith("auto?"):
                         print("Voltage controller set to " + str(auto_voltage) + "V")
                     elif request[0].startswith("profile?"):
-                        if profile and profile.running is 1:
+                        if profile and profile.state is 1:
                             print("Profile running")
-                        elif profile and profile.running is 2:
+                        elif profile and profile.state is 2:
                             print("Profile paused")
                         else:
                             print("Profile stopped")
@@ -500,17 +507,13 @@ if __name__ == "__main__":
                     if request[0].startswith("profile"):
                         if not profile: print("No profile loaded. Restart the programme with --profile filename.txt")
                         elif request[1].startswith("on"):
-                            profile.running = 1
+                            profile.state = 1
                         elif request[1].startswith("pause"):
-                            profile.running = 2
-                            load.load = False
-                            load.zero()
-                            args_auto = False
+                            profile.state = 2
+                        elif request[1].startswith("off"):
+                            profile.state = 0
                         else:
-                            profile.running = 0
-                            load.load = False
-                            load.zero()
-                            args_auto = False
+                            print("Unknown command '" + request[1] + "', try [on, pause, off]")
                     elif request[0].startswith("auto"):
                         if request[1].startswith("on"):
                             args.auto = True

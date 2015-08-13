@@ -41,6 +41,8 @@ class Scheduler():
         self.__setpoint_last = -1
         self.__paused_time = 0.0
         self.__paused_at = 0.0
+        self.__state = 0
+        self.__state_last = 0
 	
     # Method to read a line
     def _get_line(self, pointer=1):
@@ -91,27 +93,38 @@ class Scheduler():
 
     # Property - Is the schedule currently running?
     @property
-    def running(self):
-        return self.__running
+    def state(self):
+        return self.__state
 
     # Property - Set the scheduler as running
-    @running.setter
-    def running(self, state):
+    @state.setter
+    def state(self, state):
         state = int(state)        
         # If we want to turn on and not already running...
-        if state is 1 and not self.__running:
-            self._start()
+        if state is 1 and self.__state is 0:
+            self.__state_last = self.__state
+            self.__state = self._start()
         # If we want to pause/unpause or user unpauses using state 1...
-        elif (state is 2 and self.__running) or (state is 1 and self.__running is 2):
-            self._pause()
+        elif (state is 2 and self.__state in (1,2)) or (state is 1 and self.__state is 2):
+            self.__state_last = self.__state
+            self.__state = self._pause()
         # If we want to turn off and not already off...
-        elif not state and self.__running:
-            self._stop()
+        elif state is 0 and self.__state is not 0:
+            self.__state_last = self.__state
+            self.__state = self._stop()
+        # Error
+        else:
+            print("Unknown profile state request " + str(state))
+
+    # Property
+    @property
+    def state_last(self):
+        return self.__state_last
 
     # Method to start the scheduler
     def _start(self):
         # Tell the user we are trying to start
-        print("Firing up the engines...")
+        print("Starting the profile...", end="")
         
         # Open the profile file
         try:
@@ -126,24 +139,26 @@ class Scheduler():
         # Put the setpoint to zero for safety
         self.__setpoint = 0
         
-        # Set the class flag as running
-        self.__running = 1
-        
         # Tell the user we are now running
-        print("Chocks away!")
+        print("running!\n")
+
+        return 1
 
     # Method to pause the profile
     def _pause(self):
-        if self.__running is 2:
-            self.__running = 1
+        if self.__state is 2:
             paused_for = time.time() - self.__paused_at - 0.00015 # [Crudely] Calibrated for average CPU time
             self.__paused_time = self.__paused_time + paused_for
-            print("...unpaused after " + str(paused_for) + "s, continuing from " + str(self._get_psuedo_time()) + "s")
-        elif self.__running is 1:
+            print("...unpaused after " + str("{0:.1f}".format(round(paused_for,2))) + "s, continuing from " + str("{0:.2f}".format(round(self._get_psuedo_time(),2))) + "s")
+            return 1
+        elif self.__state is 1:
             self.__paused_at = time.time()
-            self.__running = 2
-            print("Paused at " + str(self._get_psuedo_time()) + "s,")
+            print("Paused at " + str("{0:.2f}".format(round(self._get_psuedo_time(),2))) + "s,")
             print("Use 'profile pause' again to continue...")
+            return 2
+        else:
+            print("No profile running to pause!")
+            return 0
 
     # Calculate psuedo time. Time since start not including pauses
     def _get_psuedo_time(self):
@@ -152,7 +167,7 @@ class Scheduler():
     # Method to stop the scheduler
     def _stop(self):
         # Tell the user we are trying to stop
-        print("Landing...")
+        print("Stopping the profile...", end="")
         
         # Set the class flag to stopped
         self.__running = 0
@@ -161,12 +176,14 @@ class Scheduler():
         self.__fid.close()
         
         # Tell the user we have stopped running
-        print("Back in hangar!\n")
+        print("finished!\n")
+
+        return 0
 
     # Internal method to run the scheduler
     def _run(self):
         # Check if we are actually running
-        if self.__running is 1:
+        if self.__state is 1:
             
             # Check the setpoint isn't in a safety error state (-1)
             if self.__setpoint >= 0:
@@ -190,36 +207,27 @@ class Scheduler():
                     else:
                         return self.__setpoint
                 
-                # Otherwise we are in error so return the error code -1
+                # Otherwise we have just finished!
                 else:
+                    self._stop()
                     return -1
                     
             # Otherwise we are in error so return the error code -1
             else:
+                self._stop()
                 return -1
-
-        # Check if paused
-        elif self.__running is 2:
-#            self.__paused_time = self.__paused_time + (time.time() - self.__paused_at)
-#            self.__paused_at = time.time() - 0.00003 # execution time
-#            print("Paused " + str(self.__paused_time) + "s")
-            return -1
 
         # Otherwise we are not running so return the error code -1
         else:
+            self.stop() # TODO is this needed?
             return -1
 
     # Method to run the scheduler
     def run(self):
+        self.__state_last = self.__state
+
         # Run the internal method
         running = self._run()
         
-        # If we are currenty running but we have hit the end of file or an error...
-        if self.__running is 1 and running is -1:
-            self._stop()
-
-#        if self.__running is 2:
-#            print("State is " + str(self.__running) + ".  Cumulative pause is " + str(self._get_psuedo_time()))
-            
         # Return the run state
         return running
